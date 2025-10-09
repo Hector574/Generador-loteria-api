@@ -2,12 +2,14 @@ import json
 import random
 from datetime import datetime
 from flask import Flask, request, jsonify
-from flask_cors import CORS # Importación necesaria para el despliegue
+from flask_cors import CORS
 
 # Inicialización de la aplicación Flask
 app = Flask(__name__)
-# Habilitar CORS para permitir solicitudes desde AppSheet o cualquier otro origen
-CORS(app)
+
+# CORRECCIÓN FINAL: Habilitar CORS para permitir solicitudes desde AppSheet (cualquier origen, '*').
+# Esto soluciona el problema de que AppSheet no recibe la respuesta JSON.
+CORS(app, resources={r"/*": {"origins": "*"}}) 
 
 # Función para generar números aleatorios
 def generar_numeros_aleatorios(inferior, superior, cantidad):
@@ -23,33 +25,31 @@ def generar_numeros_aleatorios(inferior, superior, cantidad):
         cantidad = rango_disponible
         
     # 3. Generación de los números sin repetición
-    # random.sample es la forma más eficiente de obtener 'cantidad' elementos únicos
     try:
+        # random.sample es la forma más eficiente para obtener elementos únicos
         numeros = random.sample(range(inferior, superior + 1), cantidad)
     except ValueError:
-        # Esto sucede si el rango es 0 o negativo, aunque la validación 1 ya debería haberlo capturado
         return None 
     
-    # 4. Devuelve los números como una cadena separada por comas
-    return ",".join(map(str, sorted(numeros))) # Usamos sorted() para que los números siempre salgan ordenados
+    # 4. Devuelve los números como una cadena separada por comas, ordenados para mejor lectura
+    return ",".join(map(str, sorted(numeros))) 
 
 @app.route('/generar', methods=['POST'])
 def generar_numeros():
     """
-    Endpoint que recibe los límites y la cantidad de AppSheet (claves en minúsculas) 
-    y devuelve los resultados, también con claves en minúsculas, como AppSheet lo requiere.
+    Endpoint que recibe los límites y la cantidad de AppSheet y devuelve los resultados 
+    en un formato JSON compatible con el mapeo de columnas.
     """
     try:
         data = request.get_json()
         
         # 1. Extracción y Conversión de datos (usando claves en MINÚSCULAS)
         try:
-            # AppSheet envía TEXTO, lo convertimos a INT. Usamos .get() para evitar errores si la clave no existe.
             limite_inferior = int(data.get('limiteinferior', 0))
             limite_superior = int(data.get('limitesuperior', 0))
             cantidad = int(data.get('cantidad', 0))
         except (ValueError, TypeError):
-            # Error si los datos enviados no son números válidos
+            # Respuesta 400 si los datos son inválidos
             response = {
                 "resultado": "",
                 "fechageneracion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -62,7 +62,7 @@ def generar_numeros():
         resultado_str = generar_numeros_aleatorios(limite_inferior, limite_superior, cantidad)
 
         if resultado_str is None:
-             # Error si el límite inferior es mayor o igual al superior
+             # Respuesta 400 si el rango es inválido
              response = {
                 "resultado": "",
                 "fechageneracion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -71,10 +71,10 @@ def generar_numeros():
             }
              return jsonify(response), 400
             
-        # 3. Respuesta exitosa con claves en MINÚSCULAS para AppSheet
+        # 3. Respuesta exitosa (Código 200)
         response = {
-            "resultado": resultado_str,
-            "fechageneracion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "resultado": resultado_str, # Clave en minúscula para mapeo de AppSheet
+            "fechageneracion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Clave en minúscula
             "codigo_status": "200",
             "mensaje_error": "Transaccion completada exitosamente. Los números fueron generados y ordenados."
         }
@@ -87,10 +87,10 @@ def generar_numeros():
             "resultado": "",
             "fechageneracion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "codigo_status": "500",
-            "mensaje_error": f"Error 500: Fallo interno. Revise el código de Python. Detalle: {str(e)}"
+            "mensaje_error": f"Error 500: Fallo interno. Detalle: {str(e)}"
         }
         return jsonify(response), 500
 
-# Esta línea solo se usa para probar localmente (no se ejecuta en Render)
+# Esta línea solo se usa para probar localmente
 if __name__ == '__main__':
     app.run(debug=True)
