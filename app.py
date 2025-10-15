@@ -76,7 +76,7 @@ def generar_numeros():
             "resultado": resultado_str, # Clave en minúscula para mapeo de AppSheet
             "fechageneracion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Clave en minúscula
             "codigo_status": "200",
-            "mensaje_error": "Transaccion completada exitosamente. Los números fueron generados y ordenados."
+            "mensaje_error": "Operación completada exitosamente. Los números fueron generados y ordenados."
         }
         
         return jsonify(response), 200
